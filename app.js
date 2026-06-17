@@ -171,7 +171,7 @@ const BULLETIN_URL = "https://newark192.amsat.org/gpdata/current/daily-bulletin.
 
 // Your Cloudflare Worker proxy (see proxy/worker.js + proxy/DEPLOY.md). After
 // you deploy, paste its URL here, e.g.:
-//   "https://oscarlocator-amsat-proxy.YOURNAME.workers.dev"
+//   "https://oscarlocator-pwa.prstoetzer.workers.dev/"
 // Leave as "" to fall back to the public proxy below.
 const PROXY_URL = "";
 
