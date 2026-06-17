@@ -44,6 +44,17 @@ A service worker and "Add to Home Screen" need an **HTTPS origin**. Pick one:
 - Set the UTC start date, number of days (default 60), and optionally include the
   descending node, then **Generate**. Copy or download the fixed-width table.
 
+## Fetching live elements
+
+The AMSAT server doesn't send CORS headers, so browsers can't read its bulletin
+directly. The included Cloudflare Worker (`proxy/`) fixes this: it fetches the
+bulletin server-side and re-serves it with the right header. See
+`proxy/DEPLOY.md` for the ~3-minute setup, then paste your Worker URL into
+`PROXY_URL` near the top of `app.js`.
+
+"Fetch AMSAT live" tries, in order: your Worker proxy → a public CORS proxy →
+a direct request. If all fail, use the paste box (copy one object from the JSON).
+
 ## Accuracy note
 
 Propagation uses the mean elements with J2 secular nodal regression (RAAN, arg of

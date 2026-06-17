@@ -169,6 +169,32 @@ const BLANK = {
 const FIELDS = [["AMSAT_NAME", "Satellite name", "AO-07"], ["EPOCH", "Epoch (UTC, ISO 8601)", "2026-06-16T23:34:36"], ["INCLINATION", "Inclination (\u00B0)", "101.99"], ["RA_OF_ASC_NODE", "RAAN (\u00B0)", "181.2269"], ["ECCENTRICITY", "Eccentricity", "0.0012576"], ["ARG_OF_PERICENTER", "Arg. of pericenter (\u00B0)", "130.5028"], ["MEAN_ANOMALY", "Mean anomaly (\u00B0)", "286.3286"], ["MEAN_MOTION", "Mean motion (rev/day)", "12.53698125"]];
 const BULLETIN_URL = "https://newark192.amsat.org/gpdata/current/daily-bulletin.json";
 
+// Your Cloudflare Worker proxy (see proxy/worker.js + proxy/DEPLOY.md). After
+// you deploy, paste its URL here, e.g.:
+//   "https://oscarlocator-amsat-proxy.YOURNAME.workers.dev"
+// Leave as "" to fall back to the public proxy below.
+const PROXY_URL = "";
+
+// Public CORS proxy used only if PROXY_URL is empty or fails. Third-party,
+// best-effort — fine as a fallback, not something to rely on.
+const PUBLIC_PROXY = "https://api.allorigins.win/raw?url=";
+function bulletinSources() {
+  const list = [];
+  if (PROXY_URL) list.push({
+    label: "your proxy",
+    url: PROXY_URL.replace(/\/$/, "")
+  });
+  list.push({
+    label: "public proxy",
+    url: PUBLIC_PROXY + encodeURIComponent(BULLETIN_URL)
+  });
+  list.push({
+    label: "direct",
+    url: BULLETIN_URL
+  });
+  return list;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -184,6 +210,7 @@ function App() {
   });
   const [report, setReport] = useState(null);
   const [err, setErr] = useState("");
+  const [note, setNote] = useState("");
   const [raw, setRaw] = useState("");
   const [catalog, setCatalog] = useState([]);
   const [fetching, setFetching] = useState(false);
@@ -202,6 +229,7 @@ function App() {
   }
   function loadPasted() {
     setErr("");
+    setNote("");
     try {
       let obj = JSON.parse(raw.trim());
       if (Array.isArray(obj)) obj = obj[0];
@@ -212,21 +240,36 @@ function App() {
   }
   async function fetchLive() {
     setErr("");
+    setNote("");
     setFetching(true);
-    try {
-      const res = await fetch(BULLETIN_URL);
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-      setCatalog(data);
-      if (data.length) applyRecord(data[0]);
-    } catch (e) {
-      setErr("Live fetch failed (likely CORS). Use the paste box instead — copy one object from " + BULLETIN_URL);
-    } finally {
-      setFetching(false);
+    const sources = bulletinSources();
+    let lastErr = "";
+    for (const src of sources) {
+      try {
+        const res = await fetch(src.url, {
+          headers: {
+            "Accept": "application/json"
+          }
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        if (!Array.isArray(data) || !data.length) throw new Error("empty/invalid payload");
+        setCatalog(data);
+        applyRecord(data[0]);
+        setNote(`Loaded ${data.length} satellites via ${src.label}.`);
+        setFetching(false);
+        return;
+      } catch (e) {
+        lastErr = e.message;
+        // try next source
+      }
     }
+    setFetching(false);
+    setErr("Could not fetch live elements (" + lastErr + "). Deploy your Worker proxy and set PROXY_URL, or use the paste box below.");
   }
   function generate() {
     setErr("");
+    setNote("");
     for (const [k, label] of FIELDS) {
       if (el[k] === "" || el[k] == null) {
         setErr("Missing: " + label);
@@ -322,7 +365,9 @@ function App() {
   }, /*#__PURE__*/React.createElement("option", null, "Select satellite…"), catalog.map((s, idx) => /*#__PURE__*/React.createElement("option", {
     key: idx,
     value: idx
-  }, s.AMSAT_NAME || s.OBJECT_NAME)))), /*#__PURE__*/React.createElement("details", {
+  }, s.AMSAT_NAME || s.OBJECT_NAME)))), note && /*#__PURE__*/React.createElement("div", {
+    className: "ol-note"
+  }, note), /*#__PURE__*/React.createElement("details", {
     className: "ol-paste"
   }, /*#__PURE__*/React.createElement("summary", null, "Or paste from daily-bulletin.json"), /*#__PURE__*/React.createElement("p", {
     className: "ol-hint"

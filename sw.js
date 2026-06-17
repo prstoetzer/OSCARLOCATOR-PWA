@@ -1,5 +1,5 @@
 // OSCARLOCATOR service worker — precache the app shell for offline use.
-const CACHE = "oscarlocator-v1";
+const CACHE = "oscarlocator-v2";
 
 const ASSETS = [
   "./",
@@ -33,11 +33,20 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
 
-  // Never cache the live AMSAT bulletin — always go to network.
-  if (url.hostname.endsWith("amsat.org")) {
-    event.respondWith(fetch(req).catch(() => new Response("[]", {
-      headers: { "Content-Type": "application/json" }
-    })));
+  // Never cache live element data — always go to network. Covers the AMSAT host,
+  // the public CORS proxy, and any *.workers.dev proxy you deploy.
+  const isLiveData =
+    url.hostname.endsWith("amsat.org") ||
+    url.hostname.endsWith("allorigins.win") ||
+    url.hostname.endsWith("workers.dev") ||
+    url.search.includes("daily-bulletin.json");
+
+  if (isLiveData) {
+    event.respondWith(
+      fetch(req).catch(() => new Response("[]", {
+        headers: { "Content-Type": "application/json" }
+      }))
+    );
     return;
   }
 
